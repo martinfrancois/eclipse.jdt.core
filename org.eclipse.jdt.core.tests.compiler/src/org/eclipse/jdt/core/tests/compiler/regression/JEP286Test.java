@@ -1465,4 +1465,21 @@ public void testIssue600_4() {
 			+ "'var' cannot be used with type arguments\n"
 			+ "----------\n");
 }
+public void testIssuePlaceholder07ArrayDownwardsProjection() {
+	this.runConformTest(
+		new String[] {
+			"TestBadArray.java",
+			"""
+			import java.util.List;
+
+			class TestBadArray {
+			    <Z> List<? super Z[]> m(List<Z> z) { return null; }
+
+			    void test(List<? extends Number> l) {
+			        var v = m(l);
+			    }
+			}
+			"""
+		});
+}
 }
