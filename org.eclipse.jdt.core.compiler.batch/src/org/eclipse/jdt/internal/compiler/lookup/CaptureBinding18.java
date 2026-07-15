@@ -95,14 +95,19 @@ public class CaptureBinding18 extends CaptureBinding {
 	@Override
 	public TypeBinding erasure() {
 		if (this.upperBounds != null && this.upperBounds.length > 1) {
+			TypeBinding firstErasure = this.upperBounds[0].erasure();
+			if (!(firstErasure instanceof ReferenceBinding firstReferenceErasure))
+				return firstErasure;
 			ReferenceBinding[] erasures = new ReferenceBinding[this.upperBounds.length];
+			erasures[0] = firstReferenceErasure;
 			boolean multipleErasures = false;
-			for (int i = 0; i < this.upperBounds.length; i++) {
-				erasures[i] = (ReferenceBinding) this.upperBounds[i].erasure(); // FIXME cast?
-				if (i > 0) {
-					if (TypeBinding.notEquals(erasures[0], erasures[i]))
-						multipleErasures = true;
-				}
+			for (int i = 1; i < this.upperBounds.length; i++) {
+				TypeBinding erasure = this.upperBounds[i].erasure();
+				if (!(erasure instanceof ReferenceBinding referenceErasure))
+					return firstErasure;
+				erasures[i] = referenceErasure;
+				if (TypeBinding.notEquals(erasures[0], erasures[i]))
+					multipleErasures = true;
 			}
 			if (!multipleErasures)
 				return erasures[0];

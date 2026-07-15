@@ -20,6 +20,13 @@ import junit.framework.Test;
 import org.eclipse.jdt.core.JavaCore;
 import org.eclipse.jdt.internal.compiler.classfmt.ClassFileConstants;
 import org.eclipse.jdt.internal.compiler.impl.CompilerOptions;
+import org.eclipse.jdt.internal.compiler.lookup.ArrayBinding;
+import org.eclipse.jdt.internal.compiler.lookup.CaptureBinding18;
+import org.eclipse.jdt.internal.compiler.lookup.LookupEnvironment;
+import org.eclipse.jdt.internal.compiler.lookup.ProblemReasons;
+import org.eclipse.jdt.internal.compiler.lookup.ProblemReferenceBinding;
+import org.eclipse.jdt.internal.compiler.lookup.ReferenceBinding;
+import org.eclipse.jdt.internal.compiler.lookup.TypeBinding;
 
 @SuppressWarnings({ "unchecked", "rawtypes" })
 public class GenericsRegressionTest_1_8 extends AbstractRegressionTest {
@@ -10963,5 +10970,88 @@ public void testBug508834_comment0() {
 			"	^^^\n" +
 			"The method bar(One<Inner<?>>) in the type Bug is not applicable for the arguments (One<Inner<X>>)\n" +
 			"----------\n");
+	}
+	public void testIssuePlaceholder08CaptureArrayErasure() {
+		runNegativeTest(
+			new String[] {
+				"T8062977.java",
+				"""
+				import java.util.List;
+
+				class T8062977 {
+					<T extends B, B> T m(Class<B> cb) { return null; }
+
+					void test1(Class<Iterable<?>> cb) {
+						List<Integer>[] r1 = m(cb);
+						List<Integer> r2 = m(cb);
+					}
+
+					void test2(Class<Iterable<?>[]> cb) {
+						List<Integer>[] r1 = m(cb);
+						List<Integer> r2 = m(cb);
+					}
+
+					void test3(Class<Iterable<?>[][]> cb) {
+						List<Integer>[][] r1 = m(cb);
+						List<Integer>[] r2 = m(cb);
+						List<Integer> r3 = m(cb);
+					}
+				}
+				"""
+			},
+			"""
+			----------
+			1. ERROR in T8062977.java (at line 7)
+				List<Integer>[] r1 = m(cb);
+				                     ^^^^^
+			Type mismatch: cannot convert from Iterable<capture#1-of ?> to List<Integer>[]
+			----------
+			2. ERROR in T8062977.java (at line 12)
+				List<Integer>[] r1 = m(cb);
+				                     ^^^^^
+			Type mismatch: cannot convert from Iterable<?>[] to List<Integer>[]
+			----------
+			3. ERROR in T8062977.java (at line 17)
+				List<Integer>[][] r1 = m(cb);
+				                       ^^^^^
+			Type mismatch: cannot convert from Iterable<?>[][] to List<Integer>[][]
+			----------
+			4. ERROR in T8062977.java (at line 18)
+				List<Integer>[] r2 = m(cb);
+				                     ^^^^^
+			Type mismatch: cannot convert from Iterable<?>[][] to List<Integer>[]
+			----------
+			""");
+	}
+	public void testIssuePlaceholder08ArrayFirstUpperBoundErasure() {
+		LookupEnvironment environment = new LookupEnvironment(null, new CompilerOptions(), null, null);
+		ProblemReferenceBinding object = issuePlaceholder08ObjectType();
+		ArrayBinding array = new ArrayBinding(object, 1, environment);
+		CaptureBinding18 capture = issuePlaceholder08Capture(object, environment);
+		// Invalid source can leave provisional bounds installed after consistency checking rejects them.
+		assertFalse(capture.setUpperBounds(new TypeBinding[] { array, object }, object));
+
+		assertSame(array, capture.erasure());
+	}
+	public void testIssuePlaceholder08InvalidLaterArrayUpperBoundUsesFirstErasure() {
+		LookupEnvironment environment = new LookupEnvironment(null, new CompilerOptions(), null, null);
+		ProblemReferenceBinding object = issuePlaceholder08ObjectType();
+		ArrayBinding array = new ArrayBinding(object, 1, environment);
+		CaptureBinding18 capture = issuePlaceholder08Capture(object, environment);
+		assertFalse(capture.setUpperBounds(new TypeBinding[] { object, array }, object));
+
+		assertSame(object, capture.erasure());
+	}
+	private static CaptureBinding18 issuePlaceholder08Capture(
+			ReferenceBinding contextType,
+			LookupEnvironment environment) {
+		return new CaptureBinding18(
+			contextType, "capture".toCharArray(), "capture".toCharArray(), 0, 0, 0, environment);
+	}
+	private static ProblemReferenceBinding issuePlaceholder08ObjectType() {
+		return new ProblemReferenceBinding(
+			new char[][] { "java".toCharArray(), "lang".toCharArray(), "Object".toCharArray() },
+			null,
+			ProblemReasons.NotFound);
 	}
 }
